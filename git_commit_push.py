@@ -3,7 +3,8 @@ nonki フォルダを Git リポジトリルートとして、全ファイルを
 
 【目的】
   このスクリプトが置かれているフォルダ（nonki）をリポジトリルートとみなし、
-  その直下の全ファイル・サブフォルダを git add してコミットし、リモートへプッシュする。
+  直下の全ファイルと各サブフォルダ（html, data 等）を git add してコミットし、リモートへプッシュする。
+  docs フォルダは add 対象から除外し、コミットで docs を変更しないため、リモートの docs フォルダが消えないようにする。
 
 【前提条件】
   - スクリプトは nonki フォルダ直下に配置すること。
@@ -36,10 +37,15 @@ from pathlib import Path
 FMT_COMMIT_MSG = "%Y-%m-%d %H:%M:%S"   # デフォルトのコミットメッセージに使う日時フォーマット
 BRANCH_DEFAULT = "main"
 
+# リポジトリ直下で add するフォルダ（存在するものだけ add する）。docs は除外（リモートの docs を消さないため）
+ADD_FOLDERS = ["html", "data"]
+# add 後にアンステージするフォルダ（コミットに含めない＝リモートの内容をそのまま残す）
+EXCLUDE_FOLDERS = ["docs"]
+
 MSG_ERR_NOT_REPO = "エラー: リポジトリルート（nonki）が Git リポジトリではありません。"
 MSG_ERR_NOT_REPO_HINT = "  nonki フォルダで git init してください。"
 MSG_NO_CHANGES = "コミットする変更がありません。プッシュはスキップします。"
-MSG_ADD_DONE = "  git add . 完了"
+MSG_ADD_DONE = "  git add 完了（docs 除外・リモートの docs は維持）"
 MSG_COMMIT_DONE = "  コミット完了: {0}"
 MSG_PUSH_PREP = "  プッシュ準備中..."
 MSG_PUSH_DONE = "  プッシュ完了"
@@ -116,13 +122,26 @@ def main() -> int:
         print(MSG_ERR_NOT_REPO_HINT)
         return 1
 
+    # ルート（.）と各フォルダを add したあと、EXCLUDE_FOLDERS をアンステージしてコミットに含めない（リモートの docs を消さない）
+    add_paths = ["."]
+    for name in ADD_FOLDERS:
+        if (root / name).exists():
+            add_paths.append(name)
     subprocess.run(
-        ["git", "add", "."],
+        ["git", "add"] + add_paths,
         cwd=root,
         check=True,
         capture_output=True,
         text=True,
     )
+    for name in EXCLUDE_FOLDERS:
+        subprocess.run(
+            ["git", "reset", "HEAD", "--", name],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
     print(MSG_ADD_DONE)
 
     if not has_staged_changes(root):
