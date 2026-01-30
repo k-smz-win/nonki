@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# ローカルのURLファイル（Gitに含めない）
+latest_url.txt
+
+# その他
+.DS_Store
+*.log
+*.csv
+*.html
+!docs/*.html
+msedgedriver.exe
