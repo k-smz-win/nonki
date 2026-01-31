@@ -397,7 +397,7 @@ def extract_price_details_from_cards(driver, checkin_date: date) -> List[Dict[st
     """検索結果ページから価格・URL・タイトル・レビュー等を1件ずつ抽出"""
     # 日付に応じた閾値（閾値超過は除外）
     price_threshold = get_price_threshold(checkin_date)
-        spans = driver.find_elements(By.XPATH, price_span_anywhere_xpath())
+    spans = driver.find_elements(By.XPATH, price_span_anywhere_xpath())
     if spans:
         # aria-label や text から価格を取得。閾値超過・RATING_MIN以下・REVIEWS_COUNT_MIN未満はスキップ
         by_href: Dict[str, Dict[str, object]] = {}
