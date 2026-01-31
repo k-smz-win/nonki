@@ -9,9 +9,6 @@ venv/
 ENV/
 .venv
 
-# ローカルのURLファイル（Gitに含めない）
-latest_url.txt
-
 # その他
 .DS_Store
 *.log

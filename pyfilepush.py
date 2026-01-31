@@ -1,45 +1,14 @@
-"""
-nonki フォルダを Git リポジトリルートとして、全ファイルをコミット・プッシュするスクリプト。
-
-【目的】
-  このスクリプトが置かれているフォルダ（nonki）をリポジトリルートとみなし、
-  直下の全ファイルと各サブフォルダ（html, data 等）を git add してコミットし、リモートへプッシュする。
-  docs フォルダは add 対象から除外し、コミットで docs を変更しないため、リモートの docs フォルダが消えないようにする。
-
-【前提条件】
-  - スクリプトは nonki フォルダ直下に配置すること。
-  - nonki フォルダが Git リポジトリであること（.git が nonki 直下またはその上位にあること）。
-  - リモート（origin）が設定されていること。初回は git push -u origin <branch> で upstream を設定する。
-  - Git の認証は Git Credential Manager に任せる。
-
-【入力の意味】
-  - 引数: オプションでコミットメッセージを指定可能。未指定時は日時で自動生成。
-  - リポジトリルート: この .py ファイルが存在するディレクトリ（nonki）を使用。
-
-【出力の意味】
-  - Git の add / commit / push を順に実行する。
-
-【例外・エラー時の考え方】
-  - リポジトリでない: エラーを出して終了コード 1。git init を案内。
-  - ステージングに変更がない: メッセージを出して正常終了（終了コード 0）。空コミット・プッシュはしない。
-  - git add / commit / push の失敗: check=True のため例外で終了。認証失敗やリモート未設定はここで表面化する。
-"""
+"""nonki フォルダをリポジトリルートとして、全ファイル（docs 除外）をコミット・プッシュする。"""
 
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 
-# =============================================================================
-# 定数定義
-# =============================================================================
-
-FMT_COMMIT_MSG = "%Y-%m-%d %H:%M:%S"   # デフォルトのコミットメッセージに使う日時フォーマット
+# 定数
+FMT_COMMIT_MSG = "%Y-%m-%d %H:%M:%S"
 BRANCH_DEFAULT = "main"
-
-# リポジトリ直下で add するフォルダ（存在するものだけ add する）。docs は除外（リモートの docs を消さないため）
 ADD_FOLDERS = ["html", "data"]
-# add 後にアンステージするフォルダ（コミットに含めない＝リモートの内容をそのまま残す）
 EXCLUDE_FOLDERS = ["docs"]
 
 MSG_ERR_NOT_REPO = "エラー: リポジトリルート（nonki）が Git リポジトリではありません。"
@@ -51,30 +20,42 @@ MSG_PUSH_PREP = "  プッシュ準備中..."
 MSG_PUSH_DONE = "  プッシュ完了"
 
 
-# =============================================================================
-# リポジトリルートの取得・Git 判定
-# =============================================================================
-
+# スクリプト配置ディレクトリをリポジトリルート（nonki）として返す
+#
+# 引数:
+#   （なし）
+#
+# 戻り値:
+#   Path: リポジトリルート
 def get_repo_root() -> Path:
-    """
-    このスクリプトが置かれているディレクトリをリポジトリルート（nonki）とする。
-    どこから実行しても、nonki フォルダを基準に Git 操作するため。
-    """
     return Path(__file__).resolve().parent
 
 
+# 指定パスが Git リポジトリか
+#
+# 引数:
+#   root (Path): 対象パス
+#
+# 戻り値:
+#   bool: リポジトリなら True
 def is_git_repository(root: Path) -> bool:
-    """指定パスが Git リポジトリ（.git が存在）かどうか。"""
     if (root / ".git").exists() and (root / ".git").is_dir():
         return True
+    # 親ディレクトリに .git があるか探索
     for parent in root.parents:
         if (parent / ".git").exists():
             return True
     return False
 
 
+# ステージングに変更があるか
+#
+# 引数:
+#   root (Path): リポジトリルート
+#
+# 戻り値:
+#   bool: 変更あれば True
 def has_staged_changes(root: Path) -> bool:
-    """リポジトリルートで git diff --cached --quiet を実行し、ステージングに変更があれば True。"""
     r = subprocess.run(
         ["git", "diff", "--cached", "--quiet"],
         cwd=root,
@@ -83,8 +64,14 @@ def has_staged_changes(root: Path) -> bool:
     return r.returncode != 0
 
 
+# 現在のブランチ名
+#
+# 引数:
+#   root (Path): リポジトリルート
+#
+# 戻り値:
+#   str: ブランチ名（失敗時は BRANCH_DEFAULT）
 def get_current_branch(root: Path) -> str:
-    """現在のブランチ名。失敗時は BRANCH_DEFAULT を返す。"""
     r = subprocess.run(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
         cwd=root,
@@ -94,8 +81,14 @@ def get_current_branch(root: Path) -> str:
     return r.stdout.strip() if r.returncode == 0 else BRANCH_DEFAULT
 
 
+# 現在ブランチに upstream が設定されているか
+#
+# 引数:
+#   root (Path): リポジトリルート
+#
+# 戻り値:
+#   bool: 設定済みなら True
 def has_upstream(root: Path) -> bool:
-    """現在ブランチに upstream が設定されていれば True。"""
     r = subprocess.run(
         ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
         cwd=root,
@@ -105,25 +98,26 @@ def has_upstream(root: Path) -> bool:
     return r.returncode == 0
 
 
-# =============================================================================
-# メイン処理
-# =============================================================================
-
+# リポジトリルートで git add / commit / push を実行
+#
+# 引数:
+#   sys.argv[1:]: オプションでコミットメッセージ（未指定時は日時）
+#
+# 戻り値:
+#   int: 0=正常、1=リポジトリでない／変更なし
 def main() -> int:
-    """
-    リポジトリルート（nonki）で git add . / git commit / git push を実行する。
-    引数でコミットメッセージを指定可能。未指定時は日時を使用。
-    """
     root = get_repo_root()
     print(f"リポジトリルート: {root}")
 
+    # Git リポジトリでない場合
     if not is_git_repository(root):
         print(MSG_ERR_NOT_REPO)
         print(MSG_ERR_NOT_REPO_HINT)
         return 1
 
-    # ルート（.）と各フォルダを add したあと、EXCLUDE_FOLDERS をアンステージしてコミットに含めない（リモートの docs を消さない）
+    # . と ADD_FOLDERS を add。その後 docs をアンステージ
     add_paths = ["."]
+    # ADD_FOLDERS のうち存在するものを add 対象に
     for name in ADD_FOLDERS:
         if (root / name).exists():
             add_paths.append(name)
@@ -134,6 +128,7 @@ def main() -> int:
         capture_output=True,
         text=True,
     )
+    # EXCLUDE_FOLDERS をアンステージ
     for name in EXCLUDE_FOLDERS:
         subprocess.run(
             ["git", "reset", "HEAD", "--", name],
@@ -144,10 +139,12 @@ def main() -> int:
         )
     print(MSG_ADD_DONE)
 
+    # 空コミット防止
     if not has_staged_changes(root):
         print(MSG_NO_CHANGES)
         return 0
 
+    # 引数でコミットメッセージ未指定なら日時を使用
     if len(sys.argv) >= 2:
         commit_message = " ".join(sys.argv[1:])
     else:
@@ -164,6 +161,7 @@ def main() -> int:
 
     print(MSG_PUSH_PREP)
     branch = get_current_branch(root)
+    # upstream 未設定時は -u で初回設定
     if has_upstream(root):
         subprocess.run(
             ["git", "push"],

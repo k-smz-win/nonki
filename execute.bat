@@ -1,43 +1,50 @@
 @echo off
-REM 目的: scrape → report → gitpush の順に実行。各処理が終了してから次を実行する。
-REM 前提: このバッチはリポジトリ直下で実行すること。scrape.py は Edge ドライバ、gitpush.py は Git リポジトリと report.html を要求する。
-REM 入力: なし（各スクリプトは定数・環境変数・既存ファイルを参照する）。
-REM 例外: いずれかが errorlevel 1 を返したらそこで打ち切り、exit /b 1 で終了。後続の scrape/report/gitpush は実行しない。
-REM なぜこの順: scrape で CSV → report で HTML → gitpush で GitHub Pages に公開、というデータの流れのため。
+REM scrape_main → report → htmlpush の順に実行。いずれか失敗で打ち切り。
+REM 前提: リポジトリ直下で実行。scrape_main=Edge ドライバ、htmlpush=Git・docs/index.html 必要。
 chcp 65001 >nul
 setlocal
 
-echo ========================================
-echo 1/3 scrape.py
-echo ========================================
-python scrape.py
+set LOGFILE=execute.log
+set DATETIME=%date% %time:~0,8%
+
+echo [%DATETIME%] 開始: scrape_main.py >> %LOGFILE%
+set LOGFILE=execute.log
+python scrape_main.py
 if errorlevel 1 (
-    echo エラー: scrape.py が失敗しました。
+    set DATETIME=%date% %time:~0,8%
+    echo [%DATETIME%] エラー: scrape_main.py 失敗 >> %LOGFILE%
+    echo エラー: scrape_main.py が失敗しました。
     exit /b 1
 )
+set DATETIME=%date% %time:~0,8%
+echo [%DATETIME%] 終了: scrape_main.py >> %LOGFILE%
 echo.
 
-echo ========================================
-echo 2/3 report.py
-echo ========================================
-python report.py
+echo [%DATETIME%] 開始: report_main.py >> %LOGFILE%
+set LOGFILE=execute.log
+python report_main.py
 if errorlevel 1 (
-    echo エラー: report.py が失敗しました。
+    set DATETIME=%date% %time:~0,8%
+    echo [%DATETIME%] エラー: report_main.py 失敗 >> %LOGFILE%
+    echo エラー: report_main.py が失敗しました。
     exit /b 1
 )
+set DATETIME=%date% %time:~0,8%
+echo [%DATETIME%] 終了: report_main.py >> %LOGFILE%
 echo.
 
-echo ========================================
-echo 3/3 gitpush.py
-echo ========================================
-python gitpush.py
+echo [%DATETIME%] 開始: htmlpush.py >> %LOGFILE%
+set LOGFILE=run.log
+python htmlpush.py
 if errorlevel 1 (
-    echo エラー: gitpush.py が失敗しました。
+    set DATETIME=%date% %time:~0,8%
+    echo [%DATETIME%] エラー: htmlpush.py 失敗 >> %LOGFILE%
+    echo エラー: htmlpush.py が失敗しました。
     exit /b 1
 )
+set DATETIME=%date% %time:~0,8%
+echo [%DATETIME%] 終了: htmlpush.py >> %LOGFILE%
 echo.
-
-echo ========================================
 echo すべて完了
 echo ========================================
 exit /b 0
