@@ -107,14 +107,16 @@ function quantile(arr,p){ if(arr.length===0) return null; const xs=[...arr].sort
 let DAY_DETAILS={};
 window.addEventListener("DOMContentLoaded",()=>{ try{ DAY_DETAILS=JSON.parse(document.getElementById("day-details-data").textContent||"{}"); }catch(e){ DAY_DETAILS={}; }
   const backdrop=document.getElementById("modalBackdrop"); const btnClose=document.getElementById("modalClose");
-  backdrop.addEventListener("click",(e)=>{ if(e.target===backdrop) closeDayModal(); });
-  btnClose.addEventListener("click",closeDayModal);
+  if(backdrop) backdrop.addEventListener("click",(e)=>{ if(e.target===backdrop) closeDayModal(); });
+  if(btnClose) btnClose.addEventListener("click",closeDayModal);
   document.addEventListener("keydown",(e)=>{ if(e.key==="Escape") closeDayModal(); });
+  document.body.addEventListener("click",(e)=>{ const btn=e.target.closest(".jump-btn"); if(!btn||btn.disabled) return; const iso=btn.getAttribute("data-iso-date"); if(iso) openDayModal(iso); });
   initGraphTooltip();
 });
-function openDayModal(isoDate){ const item=DAY_DETAILS[isoDate]; if(!item) return;
-  const title=document.getElementById("modalTitle"); const stats=document.getElementById("modalStats"); const body=document.getElementById("modalTableBody");
-  title.innerHTML=item.dateLabelHtml||escHtml(isoDate);
+function openDayModal(isoDate){ const title=document.getElementById("modalTitle"); const stats=document.getElementById("modalStats"); const body=document.getElementById("modalTableBody"); const item=DAY_DETAILS[isoDate];
+  if(!title||!stats||!body) return;
+  title.innerHTML=item? (item.dateLabelHtml||escHtml(isoDate)) : escHtml(isoDate);
+  if(!item){ stats.innerHTML=""; body.innerHTML="<tr><td colspan="8" class="muted">この日の明細はありません</td></tr>"; document.getElementById("modalBackdrop")&&document.getElementById("modalBackdrop").classList.add("open"); document.getElementById("modalBody")&&(document.getElementById("modalBody").scrollTop=0); return; }
   const rows=(item.rows||[]).slice();
   const prices=rows.map(r=>Number(r.price)).filter(v=>Number.isFinite(v));
   const minV=prices.length?Math.min(...prices):null; const maxV=prices.length?Math.max(...prices):null;
@@ -128,10 +130,12 @@ function openDayModal(isoDate){ const item=DAY_DETAILS[isoDate]; if(!item) retur
   document.getElementById("modalBody").scrollTop=0;
 }
 function closeDayModal(){ const b=document.getElementById("modalBackdrop"); if(b) b.classList.remove("open"); }
-let tooltipEl=null;
-function updateTooltipPosition(circle){ if(!tooltipEl) return; tooltipEl.style.display='block'; const circleRect=circle.getBoundingClientRect(); const px=circleRect.left+circleRect.width/2; const circleTop=circleRect.top; const offset=8; if(!tooltipEl){ tooltipEl=document.createElement('div'); tooltipEl.className='graph-tooltip'; tooltipEl.style.display='none'; document.body.appendChild(tooltipEl); } const tooltipHeight=tooltipEl.offsetHeight; const tooltipWidth=tooltipEl.offsetWidth; let tooltipTop=circleTop-tooltipHeight-offset; let tooltipLeft=px+12; tooltipEl.style.left=tooltipLeft+'px'; tooltipEl.style.top=tooltipTop+'px'; const tooltipRect=tooltipEl.getBoundingClientRect(); if(tooltipRect.right>window.innerWidth-10) tooltipEl.style.left=(px-tooltipWidth-12)+'px'; if(tooltipRect.left<10) tooltipEl.style.left='10px'; if(tooltipRect.top<10) tooltipEl.style.top=(circleRect.bottom+offset)+'px'; const finalRect=tooltipEl.getBoundingClientRect(); if(finalRect.bottom>window.innerHeight-10) tooltipEl.style.top=(window.innerHeight-finalRect.height-10)+'px'; }
-function initGraphTooltip(){ if(!tooltipEl){ tooltipEl=document.createElement('div'); tooltipEl.className='graph-tooltip'; tooltipEl.style.display='none'; document.body.appendChild(tooltipEl); } function tryInit(){ const circles=document.querySelectorAll('svg circle[data-tooltip-date]'); if(circles.length) attachTooltipListeners(circles); else setTimeout(tryInit,100); } setTimeout(tryInit,50); setTimeout(tryInit,200); setTimeout(tryInit,500); }
-function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.hasAttribute('data-tooltip-attached')) return; circle.setAttribute('data-tooltip-attached','true'); circle.style.pointerEvents='auto'; circle.addEventListener('mouseenter',e=>{ e.stopPropagation(); const c=e.target; const date=c.getAttribute('data-tooltip-date'); const avg=c.getAttribute('data-tooltip-avg'); const median=c.getAttribute('data-tooltip-median'); const p25=c.getAttribute('data-tooltip-p25'); const p75=c.getAttribute('data-tooltip-p75'); const min=c.getAttribute('data-tooltip-min'); const max=c.getAttribute('data-tooltip-max'); const count=c.getAttribute('data-tooltip-count'); if(!date) return; if(!tooltipEl){ tooltipEl=document.createElement('div'); tooltipEl.className='graph-tooltip'; tooltipEl.style.display='none'; document.body.appendChild(tooltipEl); } tooltipEl.innerHTML=`<div class="tooltip-header">${escHtml(date)}</div><div class="tooltip-section"><div class="tooltip-row"><span class="tooltip-label">平均</span><span class="tooltip-value">${escHtml(avg)}</span></div><div class="tooltip-row"><span class="tooltip-label">中央値</span><span class="tooltip-value">${escHtml(median)}</span></div></div><div class="tooltip-section"><div class="tooltip-row"><span class="tooltip-label">下位25%点</span><span class="tooltip-value">${escHtml(p25)}</span></div><div class="tooltip-row"><span class="tooltip-label">上位25%点</span><span class="tooltip-value">${escHtml(p75)}</span></div></div><div class="tooltip-section"><div class="tooltip-row"><span class="tooltip-label">最小</span><span class="tooltip-value">${escHtml(min)}</span></div><div class="tooltip-row"><span class="tooltip-label">最大</span><span class="tooltip-value">${escHtml(max)}</span></div></div><div class="tooltip-row" style="margin-top:8px; padding-top:8px; border-top:1px solid #f3f4f6;"><span class="tooltip-label">件数</span><span class="tooltip-value">${escHtml(count)}</span></div>`; updateTooltipPosition(c); }); circle.addEventListener('mouseleave',e=>{ e.stopPropagation(); if(tooltipEl) tooltipEl.style.display='none'; }); circle.addEventListener('mousemove',e=>{ e.stopPropagation(); if(!tooltipEl||tooltipEl.style.display==='none') return; updateTooltipPosition(e.target); }); }); }
+let tooltipEl=null; let tooltipPinned=false;
+function updateTooltipPosition(circle){ if(!tooltipEl) return; tooltipEl.style.display='block'; const circleRect=circle.getBoundingClientRect(); const px=circleRect.left+circleRect.width/2; const circleTop=circleRect.top; const offset=8; const tooltipHeight=tooltipEl.offsetHeight; const tooltipWidth=tooltipEl.offsetWidth; let tooltipTop=circleTop-tooltipHeight-offset; let tooltipLeft=px+12; tooltipEl.style.left=tooltipLeft+'px'; tooltipEl.style.top=tooltipTop+'px'; const tooltipRect=tooltipEl.getBoundingClientRect(); if(tooltipRect.right>window.innerWidth-10) tooltipEl.style.left=(px-tooltipWidth-12)+'px'; if(tooltipRect.left<10) tooltipEl.style.left='10px'; if(tooltipRect.top<10) tooltipEl.style.top=(circleRect.bottom+offset)+'px'; const finalRect=tooltipEl.getBoundingClientRect(); if(finalRect.bottom>window.innerHeight-10) tooltipEl.style.top=(window.innerHeight-finalRect.height-10)+'px'; }
+function showTooltipForCircle(c){ const date=c.getAttribute('data-tooltip-date'); const avg=c.getAttribute('data-tooltip-avg'); const median=c.getAttribute('data-tooltip-median'); const p25=c.getAttribute('data-tooltip-p25'); const p75=c.getAttribute('data-tooltip-p75'); const min=c.getAttribute('data-tooltip-min'); const max=c.getAttribute('data-tooltip-max'); const count=c.getAttribute('data-tooltip-count'); if(!date||!tooltipEl) return; tooltipEl.innerHTML=`<div class="tooltip-header">${escHtml(date)}</div><div class="tooltip-section"><div class="tooltip-row"><span class="tooltip-label">平均</span><span class="tooltip-value">${escHtml(avg)}</span></div><div class="tooltip-row"><span class="tooltip-label">中央値</span><span class="tooltip-value">${escHtml(median)}</span></div></div><div class="tooltip-section"><div class="tooltip-row"><span class="tooltip-label">下位25%点</span><span class="tooltip-value">${escHtml(p25)}</span></div><div class="tooltip-row"><span class="tooltip-label">上位25%点</span><span class="tooltip-value">${escHtml(p75)}</span></div></div><div class="tooltip-section"><div class="tooltip-row"><span class="tooltip-label">最小</span><span class="tooltip-value">${escHtml(min)}</span></div><div class="tooltip-row"><span class="tooltip-label">最大</span><span class="tooltip-value">${escHtml(max)}</span></div></div><div class="tooltip-row" style="margin-top:8px; padding-top:8px; border-top:1px solid #f3f4f6;"><span class="tooltip-label">件数</span><span class="tooltip-value">${escHtml(count)}</span></div>`; updateTooltipPosition(c); tooltipEl.style.display='block'; }
+function hideTooltip(){ if(tooltipEl) tooltipEl.style.display='none'; tooltipPinned=false; }
+function initGraphTooltip(){ if(!tooltipEl){ tooltipEl=document.createElement('div'); tooltipEl.className='graph-tooltip'; tooltipEl.style.display='none'; document.body.appendChild(tooltipEl); } document.addEventListener("click",(e)=>{ if(tooltipPinned&&tooltipEl&&!tooltipEl.contains(e.target)&&!e.target.closest('svg circle[data-tooltip-date]')) hideTooltip(); }); function tryInit(){ const circles=document.querySelectorAll('svg circle[data-tooltip-date]'); if(circles.length) attachTooltipListeners(circles); else setTimeout(tryInit,100); } setTimeout(tryInit,50); setTimeout(tryInit,200); setTimeout(tryInit,500); }
+function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.hasAttribute('data-tooltip-attached')) return; circle.setAttribute('data-tooltip-attached','true'); circle.style.pointerEvents='auto'; circle.addEventListener('mouseenter',e=>{ e.stopPropagation(); const c=e.target; if(!c.getAttribute('data-tooltip-date')) return; if(!tooltipEl){ tooltipEl=document.createElement('div'); tooltipEl.className='graph-tooltip'; tooltipEl.style.display='none'; document.body.appendChild(tooltipEl); } showTooltipForCircle(c); }); circle.addEventListener('mouseleave',e=>{ e.stopPropagation(); if(!tooltipPinned&&tooltipEl) tooltipEl.style.display='none'; }); circle.addEventListener('mousemove',e=>{ e.stopPropagation(); if(!tooltipEl||tooltipEl.style.display==='none') return; updateTooltipPosition(e.target); }); circle.addEventListener('click',e=>{ e.stopPropagation(); e.preventDefault(); const c=e.target; if(!c.getAttribute('data-tooltip-date')) return; if(!tooltipEl){ tooltipEl=document.createElement('div'); tooltipEl.className='graph-tooltip'; tooltipEl.style.display='none'; document.body.appendChild(tooltipEl); } tooltipPinned=true; showTooltipForCircle(c); }); }); }
 </script>
 </head>
 <body>
@@ -141,7 +145,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <b>2026年02月01日（日）</b> ～&nbsp;<b>2026年06月01日（月）</b>
 </div>
 </div>
-<p style='margin:4px 0 10px 0; font-size:12px; color:#666;'>生成日時: 2026-02-01 16:43</p>
+<p style='margin:4px 0 10px 0; font-size:12px; color:#666;'>生成日時: 2026-02-01 18:15</p>
 <div style='max-width:50%; margin-right:auto;'>
 <div class='card' style='padding:17px;'>
 <h2 style='font-size:13px; margin-top:0; margin-bottom:12px; font-weight:600;'>概要</h2>
@@ -617,7 +621,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <th style='text-align:center;'></th><th style='text-align:center;'>チェックイン日</th><th style='text-align:center;'>平均</th><th style='text-align:center;'>中央値</th><th style='text-align:center;'>下位25%点</th><th style='text-align:center;'>上位25%点</th><th style='text-align:center;'>件数</th><th style='text-align:center;'>最小</th><th style='text-align:center;'>最大</th><th style='text-align:center;'>検索URL</th>
 </tr></thead><tbody>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-01')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-01" title="明細を開く">▶</button></td>
 <td>2026年02月01日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥15,906</td>
 <td style='text-align:right;'>¥16,212</td>
@@ -629,7 +633,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-01&amp;checkout=2026-02-02&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-02')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-02" title="明細を開く">▶</button></td>
 <td>2026年02月02日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥20,116</td>
 <td style='text-align:right;'>¥20,731</td>
@@ -641,7 +645,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-02&amp;checkout=2026-02-03&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-03')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-03" title="明細を開く">▶</button></td>
 <td>2026年02月03日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥20,717</td>
 <td style='text-align:right;'>¥19,440</td>
@@ -653,7 +657,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-03&amp;checkout=2026-02-04&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-04')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-04" title="明細を開く">▶</button></td>
 <td>2026年02月04日<span class="wday weekday">（水）</span></td>
 <td style='text-align:right;'>¥22,956</td>
 <td style='text-align:right;'>¥21,287</td>
@@ -665,7 +669,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-04&amp;checkout=2026-02-05&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-05')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-05" title="明細を開く">▶</button></td>
 <td>2026年02月05日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥18,957</td>
 <td style='text-align:right;'>¥19,270</td>
@@ -677,7 +681,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-05&amp;checkout=2026-02-06&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-06')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-06" title="明細を開く">▶</button></td>
 <td>2026年02月06日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥21,846</td>
 <td style='text-align:right;'>¥22,808</td>
@@ -689,7 +693,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-06&amp;checkout=2026-02-07&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-07')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-07" title="明細を開く">▶</button></td>
 <td>2026年02月07日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥22,829</td>
 <td style='text-align:right;'>¥22,990</td>
@@ -701,7 +705,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-07&amp;checkout=2026-02-08&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-08')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-08" title="明細を開く">▶</button></td>
 <td>2026年02月08日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥21,107</td>
 <td style='text-align:right;'>¥20,649</td>
@@ -713,7 +717,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-08&amp;checkout=2026-02-09&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-09')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-09" title="明細を開く">▶</button></td>
 <td>2026年02月09日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥21,569</td>
 <td style='text-align:right;'>¥21,058</td>
@@ -725,7 +729,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-09&amp;checkout=2026-02-10&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-10')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-10" title="明細を開く">▶</button></td>
 <td>2026年02月10日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥25,199</td>
 <td style='text-align:right;'>¥25,402</td>
@@ -737,7 +741,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-10&amp;checkout=2026-02-11&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-11')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-11" title="明細を開く">▶</button></td>
 <td>2026年02月11日<span class="wday holiday">（水）</span></td>
 <td style='text-align:right;'>¥23,065</td>
 <td style='text-align:right;'>¥24,305</td>
@@ -749,7 +753,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-11&amp;checkout=2026-02-12&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-12')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-12" title="明細を開く">▶</button></td>
 <td>2026年02月12日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥21,665</td>
 <td style='text-align:right;'>¥21,036</td>
@@ -761,7 +765,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-12&amp;checkout=2026-02-13&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-13')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-13" title="明細を開く">▶</button></td>
 <td>2026年02月13日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥23,326</td>
 <td style='text-align:right;'>¥24,825</td>
@@ -773,7 +777,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-13&amp;checkout=2026-02-14&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-14')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-14" title="明細を開く">▶</button></td>
 <td>2026年02月14日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥26,328</td>
 <td style='text-align:right;'>¥25,000</td>
@@ -785,7 +789,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-14&amp;checkout=2026-02-15&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-15')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-15" title="明細を開く">▶</button></td>
 <td>2026年02月15日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥21,472</td>
 <td style='text-align:right;'>¥20,458</td>
@@ -797,7 +801,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-15&amp;checkout=2026-02-16&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-16')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-16" title="明細を開く">▶</button></td>
 <td>2026年02月16日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥21,791</td>
 <td style='text-align:right;'>¥25,200</td>
@@ -809,7 +813,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-16&amp;checkout=2026-02-17&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-17')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-17" title="明細を開く">▶</button></td>
 <td>2026年02月17日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥22,827</td>
 <td style='text-align:right;'>¥24,700</td>
@@ -821,7 +825,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-17&amp;checkout=2026-02-18&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-18')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-18" title="明細を開く">▶</button></td>
 <td>2026年02月18日<span class="wday weekday">（水）</span></td>
 <td style='text-align:right;'>¥23,389</td>
 <td style='text-align:right;'>¥22,408</td>
@@ -833,7 +837,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-18&amp;checkout=2026-02-19&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-19')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-19" title="明細を開く">▶</button></td>
 <td>2026年02月19日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥24,529</td>
 <td style='text-align:right;'>¥24,300</td>
@@ -845,7 +849,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-19&amp;checkout=2026-02-20&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-20')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-20" title="明細を開く">▶</button></td>
 <td>2026年02月20日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥25,496</td>
 <td style='text-align:right;'>¥26,513</td>
@@ -857,7 +861,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-20&amp;checkout=2026-02-21&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-21')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-21" title="明細を開く">▶</button></td>
 <td>2026年02月21日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥30,150</td>
 <td style='text-align:right;'>¥32,900</td>
@@ -869,7 +873,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-21&amp;checkout=2026-02-22&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-22')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-22" title="明細を開く">▶</button></td>
 <td>2026年02月22日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥26,406</td>
 <td style='text-align:right;'>¥26,900</td>
@@ -881,7 +885,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-22&amp;checkout=2026-02-23&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-23')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-23" title="明細を開く">▶</button></td>
 <td>2026年02月23日<span class="wday holiday">（月）</span></td>
 <td style='text-align:right;'>¥24,690</td>
 <td style='text-align:right;'>¥24,450</td>
@@ -893,7 +897,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-23&amp;checkout=2026-02-24&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-24')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-24" title="明細を開く">▶</button></td>
 <td>2026年02月24日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥26,094</td>
 <td style='text-align:right;'>¥26,695</td>
@@ -905,7 +909,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-24&amp;checkout=2026-02-25&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-25')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-25" title="明細を開く">▶</button></td>
 <td>2026年02月25日<span class="wday weekday">（水）</span></td>
 <td style='text-align:right;'>¥24,685</td>
 <td style='text-align:right;'>¥25,200</td>
@@ -917,7 +921,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-25&amp;checkout=2026-02-26&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-26')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-26" title="明細を開く">▶</button></td>
 <td>2026年02月26日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥25,265</td>
 <td style='text-align:right;'>¥25,200</td>
@@ -929,7 +933,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-26&amp;checkout=2026-02-27&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-27')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-27" title="明細を開く">▶</button></td>
 <td>2026年02月27日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥25,680</td>
 <td style='text-align:right;'>¥26,070</td>
@@ -941,7 +945,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-27&amp;checkout=2026-02-28&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-02-28')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-02-28" title="明細を開く">▶</button></td>
 <td>2026年02月28日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥25,148</td>
 <td style='text-align:right;'>¥22,125</td>
@@ -953,7 +957,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-02-28&amp;checkout=2026-03-01&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-01')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-01" title="明細を開く">▶</button></td>
 <td>2026年03月01日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥26,040</td>
 <td style='text-align:right;'>¥28,000</td>
@@ -965,7 +969,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-01&amp;checkout=2026-03-02&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-02')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-02" title="明細を開く">▶</button></td>
 <td>2026年03月02日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥29,046</td>
 <td style='text-align:right;'>¥32,308</td>
@@ -977,7 +981,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-02&amp;checkout=2026-03-03&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-03')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-03" title="明細を開く">▶</button></td>
 <td>2026年03月03日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥28,160</td>
 <td style='text-align:right;'>¥31,911</td>
@@ -989,7 +993,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-03&amp;checkout=2026-03-04&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-04')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-04" title="明細を開く">▶</button></td>
 <td>2026年03月04日<span class="wday weekday">（水）</span></td>
 <td style='text-align:right;'>¥27,798</td>
 <td style='text-align:right;'>¥30,500</td>
@@ -1001,7 +1005,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-04&amp;checkout=2026-03-05&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-05')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-05" title="明細を開く">▶</button></td>
 <td>2026年03月05日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥29,047</td>
 <td style='text-align:right;'>¥31,805</td>
@@ -1013,7 +1017,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-05&amp;checkout=2026-03-06&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-06')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-06" title="明細を開く">▶</button></td>
 <td>2026年03月06日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥29,781</td>
 <td style='text-align:right;'>¥32,500</td>
@@ -1025,7 +1029,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-06&amp;checkout=2026-03-07&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-07')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-07" title="明細を開く">▶</button></td>
 <td>2026年03月07日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥28,817</td>
 <td style='text-align:right;'>¥28,003</td>
@@ -1037,7 +1041,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-07&amp;checkout=2026-03-08&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-08')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-08" title="明細を開く">▶</button></td>
 <td>2026年03月08日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥27,718</td>
 <td style='text-align:right;'>¥28,914</td>
@@ -1049,7 +1053,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-08&amp;checkout=2026-03-09&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-09')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-09" title="明細を開く">▶</button></td>
 <td>2026年03月09日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥27,429</td>
 <td style='text-align:right;'>¥28,070</td>
@@ -1061,7 +1065,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-09&amp;checkout=2026-03-10&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-10')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-10" title="明細を開く">▶</button></td>
 <td>2026年03月10日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥28,256</td>
 <td style='text-align:right;'>¥31,152</td>
@@ -1073,7 +1077,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-10&amp;checkout=2026-03-11&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-11')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-11" title="明細を開く">▶</button></td>
 <td>2026年03月11日<span class="wday weekday">（水）</span></td>
 <td style='text-align:right;'>¥27,096</td>
 <td style='text-align:right;'>¥27,500</td>
@@ -1085,7 +1089,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-11&amp;checkout=2026-03-12&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-12')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-12" title="明細を開く">▶</button></td>
 <td>2026年03月12日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥28,769</td>
 <td style='text-align:right;'>¥31,700</td>
@@ -1097,7 +1101,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-12&amp;checkout=2026-03-13&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-13')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-13" title="明細を開く">▶</button></td>
 <td>2026年03月13日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥30,887</td>
 <td style='text-align:right;'>¥32,500</td>
@@ -1109,7 +1113,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-13&amp;checkout=2026-03-14&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-14')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-14" title="明細を開く">▶</button></td>
 <td>2026年03月14日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥26,882</td>
 <td style='text-align:right;'>¥26,900</td>
@@ -1121,7 +1125,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-14&amp;checkout=2026-03-15&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-15')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-15" title="明細を開く">▶</button></td>
 <td>2026年03月15日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥25,902</td>
 <td style='text-align:right;'>¥24,350</td>
@@ -1133,7 +1137,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-15&amp;checkout=2026-03-16&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-16')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-16" title="明細を開く">▶</button></td>
 <td>2026年03月16日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥24,296</td>
 <td style='text-align:right;'>¥22,783</td>
@@ -1145,7 +1149,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-16&amp;checkout=2026-03-17&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-17')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-17" title="明細を開く">▶</button></td>
 <td>2026年03月17日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥26,477</td>
 <td style='text-align:right;'>¥24,900</td>
@@ -1157,7 +1161,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-17&amp;checkout=2026-03-18&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-18')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-18" title="明細を開く">▶</button></td>
 <td>2026年03月18日<span class="wday weekday">（水）</span></td>
 <td style='text-align:right;'>¥27,269</td>
 <td style='text-align:right;'>¥28,033</td>
@@ -1169,7 +1173,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-18&amp;checkout=2026-03-19&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-19')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-19" title="明細を開く">▶</button></td>
 <td>2026年03月19日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥26,614</td>
 <td style='text-align:right;'>¥25,400</td>
@@ -1181,7 +1185,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-19&amp;checkout=2026-03-20&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-20')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-20" title="明細を開く">▶</button></td>
 <td>2026年03月20日<span class="wday holiday">（金）</span></td>
 <td style='text-align:right;'>¥28,496</td>
 <td style='text-align:right;'>¥29,322</td>
@@ -1193,7 +1197,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-20&amp;checkout=2026-03-21&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-21')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-21" title="明細を開く">▶</button></td>
 <td>2026年03月21日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥29,048</td>
 <td style='text-align:right;'>¥29,477</td>
@@ -1205,7 +1209,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-21&amp;checkout=2026-03-22&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-22')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-22" title="明細を開く">▶</button></td>
 <td>2026年03月22日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥30,026</td>
 <td style='text-align:right;'>¥31,212</td>
@@ -1217,7 +1221,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-22&amp;checkout=2026-03-23&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-23')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-23" title="明細を開く">▶</button></td>
 <td>2026年03月23日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥28,860</td>
 <td style='text-align:right;'>¥28,603</td>
@@ -1229,7 +1233,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-23&amp;checkout=2026-03-24&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-24')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-24" title="明細を開く">▶</button></td>
 <td>2026年03月24日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥28,966</td>
 <td style='text-align:right;'>¥28,603</td>
@@ -1241,7 +1245,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-24&amp;checkout=2026-03-25&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-25')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-25" title="明細を開く">▶</button></td>
 <td>2026年03月25日<span class="wday weekday">（水）</span></td>
 <td style='text-align:right;'>¥30,853</td>
 <td style='text-align:right;'>¥30,915</td>
@@ -1253,7 +1257,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-25&amp;checkout=2026-03-26&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-26')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-26" title="明細を開く">▶</button></td>
 <td>2026年03月26日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥26,834</td>
 <td style='text-align:right;'>¥25,850</td>
@@ -1265,7 +1269,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-26&amp;checkout=2026-03-27&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-27')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-27" title="明細を開く">▶</button></td>
 <td>2026年03月27日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥30,912</td>
 <td style='text-align:right;'>¥31,533</td>
@@ -1277,7 +1281,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-27&amp;checkout=2026-03-28&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-28')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-28" title="明細を開く">▶</button></td>
 <td>2026年03月28日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥32,893</td>
 <td style='text-align:right;'>¥34,141</td>
@@ -1289,7 +1293,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-28&amp;checkout=2026-03-29&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-29')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-29" title="明細を開く">▶</button></td>
 <td>2026年03月29日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥29,948</td>
 <td style='text-align:right;'>¥32,853</td>
@@ -1301,7 +1305,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-29&amp;checkout=2026-03-30&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-30')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-30" title="明細を開く">▶</button></td>
 <td>2026年03月30日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥30,312</td>
 <td style='text-align:right;'>¥32,748</td>
@@ -1313,7 +1317,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-30&amp;checkout=2026-03-31&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-03-31')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-03-31" title="明細を開く">▶</button></td>
 <td>2026年03月31日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥30,705</td>
 <td style='text-align:right;'>¥34,090</td>
@@ -1325,7 +1329,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-03-31&amp;checkout=2026-04-01&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-01')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-01" title="明細を開く">▶</button></td>
 <td>2026年04月01日<span class="wday weekday">（水）</span></td>
 <td style='text-align:right;'>¥29,125</td>
 <td style='text-align:right;'>¥30,707</td>
@@ -1337,7 +1341,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-01&amp;checkout=2026-04-02&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-02')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-02" title="明細を開く">▶</button></td>
 <td>2026年04月02日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥30,642</td>
 <td style='text-align:right;'>¥30,988</td>
@@ -1349,7 +1353,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-02&amp;checkout=2026-04-03&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-03')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-03" title="明細を開く">▶</button></td>
 <td>2026年04月03日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥30,711</td>
 <td style='text-align:right;'>¥25,286</td>
@@ -1361,7 +1365,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-03&amp;checkout=2026-04-04&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-04')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-04" title="明細を開く">▶</button></td>
 <td>2026年04月04日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥36,039</td>
 <td style='text-align:right;'>¥38,169</td>
@@ -1373,7 +1377,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-04&amp;checkout=2026-04-05&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-05')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-05" title="明細を開く">▶</button></td>
 <td>2026年04月05日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥31,821</td>
 <td style='text-align:right;'>¥30,000</td>
@@ -1385,7 +1389,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-05&amp;checkout=2026-04-06&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-06')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-06" title="明細を開く">▶</button></td>
 <td>2026年04月06日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥30,746</td>
 <td style='text-align:right;'>¥32,350</td>
@@ -1397,7 +1401,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-06&amp;checkout=2026-04-07&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-07')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-07" title="明細を開く">▶</button></td>
 <td>2026年04月07日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥31,844</td>
 <td style='text-align:right;'>¥32,350</td>
@@ -1409,7 +1413,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-07&amp;checkout=2026-04-08&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-08')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-08" title="明細を開く">▶</button></td>
 <td>2026年04月08日<span class="wday weekday">（水）</span></td>
 <td style='text-align:right;'>¥31,520</td>
 <td style='text-align:right;'>¥32,350</td>
@@ -1421,7 +1425,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-08&amp;checkout=2026-04-09&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-09')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-09" title="明細を開く">▶</button></td>
 <td>2026年04月09日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥31,164</td>
 <td style='text-align:right;'>¥32,680</td>
@@ -1433,7 +1437,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-09&amp;checkout=2026-04-10&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-10')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-10" title="明細を開く">▶</button></td>
 <td>2026年04月10日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥34,028</td>
 <td style='text-align:right;'>¥34,360</td>
@@ -1445,7 +1449,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-10&amp;checkout=2026-04-11&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-11')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-11" title="明細を開く">▶</button></td>
 <td>2026年04月11日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥36,411</td>
 <td style='text-align:right;'>¥37,350</td>
@@ -1457,7 +1461,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-11&amp;checkout=2026-04-12&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-12')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-12" title="明細を開く">▶</button></td>
 <td>2026年04月12日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥30,349</td>
 <td style='text-align:right;'>¥31,978</td>
@@ -1469,7 +1473,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-12&amp;checkout=2026-04-13&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-13')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-13" title="明細を開く">▶</button></td>
 <td>2026年04月13日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥28,365</td>
 <td style='text-align:right;'>¥30,939</td>
@@ -1481,7 +1485,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-13&amp;checkout=2026-04-14&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-14')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-14" title="明細を開く">▶</button></td>
 <td>2026年04月14日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥33,023</td>
 <td style='text-align:right;'>¥34,270</td>
@@ -1493,7 +1497,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-14&amp;checkout=2026-04-15&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-15')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-15" title="明細を開く">▶</button></td>
 <td>2026年04月15日<span class="wday weekday">（水）</span></td>
 <td style='text-align:right;'>¥32,002</td>
 <td style='text-align:right;'>¥32,250</td>
@@ -1505,7 +1509,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-15&amp;checkout=2026-04-16&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-16')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-16" title="明細を開く">▶</button></td>
 <td>2026年04月16日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥31,585</td>
 <td style='text-align:right;'>¥32,319</td>
@@ -1517,7 +1521,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-16&amp;checkout=2026-04-17&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-17')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-17" title="明細を開く">▶</button></td>
 <td>2026年04月17日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥30,904</td>
 <td style='text-align:right;'>¥32,044</td>
@@ -1529,7 +1533,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-17&amp;checkout=2026-04-18&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-18')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-18" title="明細を開く">▶</button></td>
 <td>2026年04月18日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥32,926</td>
 <td style='text-align:right;'>¥33,765</td>
@@ -1541,7 +1545,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-18&amp;checkout=2026-04-19&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-19')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-19" title="明細を開く">▶</button></td>
 <td>2026年04月19日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥27,934</td>
 <td style='text-align:right;'>¥28,950</td>
@@ -1553,7 +1557,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-19&amp;checkout=2026-04-20&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-20')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-20" title="明細を開く">▶</button></td>
 <td>2026年04月20日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥26,756</td>
 <td style='text-align:right;'>¥23,892</td>
@@ -1565,7 +1569,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-20&amp;checkout=2026-04-21&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-21')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-21" title="明細を開く">▶</button></td>
 <td>2026年04月21日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥30,158</td>
 <td style='text-align:right;'>¥31,523</td>
@@ -1577,7 +1581,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-21&amp;checkout=2026-04-22&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-22')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-22" title="明細を開く">▶</button></td>
 <td>2026年04月22日<span class="wday weekday">（水）</span></td>
 <td style='text-align:right;'>¥30,142</td>
 <td style='text-align:right;'>¥30,234</td>
@@ -1589,7 +1593,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-22&amp;checkout=2026-04-23&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-23')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-23" title="明細を開く">▶</button></td>
 <td>2026年04月23日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥28,646</td>
 <td style='text-align:right;'>¥28,320</td>
@@ -1601,7 +1605,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-23&amp;checkout=2026-04-24&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-24')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-24" title="明細を開く">▶</button></td>
 <td>2026年04月24日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥29,078</td>
 <td style='text-align:right;'>¥29,595</td>
@@ -1613,7 +1617,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-24&amp;checkout=2026-04-25&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-25')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-25" title="明細を開く">▶</button></td>
 <td>2026年04月25日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥20,533</td>
 <td style='text-align:right;'>¥13,055</td>
@@ -1625,7 +1629,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-25&amp;checkout=2026-04-26&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-26')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-26" title="明細を開く">▶</button></td>
 <td>2026年04月26日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥27,152</td>
 <td style='text-align:right;'>¥26,200</td>
@@ -1637,7 +1641,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-26&amp;checkout=2026-04-27&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-27')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-27" title="明細を開く">▶</button></td>
 <td>2026年04月27日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥28,280</td>
 <td style='text-align:right;'>¥29,310</td>
@@ -1649,7 +1653,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-27&amp;checkout=2026-04-28&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-28')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-28" title="明細を開く">▶</button></td>
 <td>2026年04月28日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥27,276</td>
 <td style='text-align:right;'>¥25,700</td>
@@ -1661,7 +1665,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-28&amp;checkout=2026-04-29&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-29')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-29" title="明細を開く">▶</button></td>
 <td>2026年04月29日<span class="wday holiday">（水）</span></td>
 <td style='text-align:right;'>¥30,038</td>
 <td style='text-align:right;'>¥26,100</td>
@@ -1673,7 +1677,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-29&amp;checkout=2026-04-30&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-04-30')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-04-30" title="明細を開く">▶</button></td>
 <td>2026年04月30日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥30,896</td>
 <td style='text-align:right;'>¥27,506</td>
@@ -1685,7 +1689,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-04-30&amp;checkout=2026-05-01&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-01')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-01" title="明細を開く">▶</button></td>
 <td>2026年05月01日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥32,209</td>
 <td style='text-align:right;'>¥31,800</td>
@@ -1697,7 +1701,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-01&amp;checkout=2026-05-02&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-02')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-02" title="明細を開く">▶</button></td>
 <td>2026年05月02日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥34,593</td>
 <td style='text-align:right;'>¥32,400</td>
@@ -1709,7 +1713,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-02&amp;checkout=2026-05-03&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-03')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-03" title="明細を開く">▶</button></td>
 <td>2026年05月03日<span class="wday holiday">（日）</span></td>
 <td style='text-align:right;'>¥32,816</td>
 <td style='text-align:right;'>¥42,454</td>
@@ -1721,7 +1725,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-03&amp;checkout=2026-05-04&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-04')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-04" title="明細を開く">▶</button></td>
 <td>2026年05月04日<span class="wday holiday">（月）</span></td>
 <td style='text-align:right;'>¥36,554</td>
 <td style='text-align:right;'>¥43,354</td>
@@ -1733,7 +1737,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-04&amp;checkout=2026-05-05&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-05')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-05" title="明細を開く">▶</button></td>
 <td>2026年05月05日<span class="wday holiday">（火）</span></td>
 <td style='text-align:right;'>¥33,269</td>
 <td style='text-align:right;'>¥33,875</td>
@@ -1745,7 +1749,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-05&amp;checkout=2026-05-06&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-06')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-06" title="明細を開く">▶</button></td>
 <td>2026年05月06日<span class="wday holiday">（水）</span></td>
 <td style='text-align:right;'>¥29,413</td>
 <td style='text-align:right;'>¥28,500</td>
@@ -1757,7 +1761,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-06&amp;checkout=2026-05-07&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-07')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-07" title="明細を開く">▶</button></td>
 <td>2026年05月07日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥30,396</td>
 <td style='text-align:right;'>¥33,723</td>
@@ -1769,7 +1773,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-07&amp;checkout=2026-05-08&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-08')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-08" title="明細を開く">▶</button></td>
 <td>2026年05月08日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥34,004</td>
 <td style='text-align:right;'>¥38,209</td>
@@ -1781,7 +1785,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-08&amp;checkout=2026-05-09&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-09')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-09" title="明細を開く">▶</button></td>
 <td>2026年05月09日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥34,294</td>
 <td style='text-align:right;'>¥38,230</td>
@@ -1793,7 +1797,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-09&amp;checkout=2026-05-10&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-10')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-10" title="明細を開く">▶</button></td>
 <td>2026年05月10日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥26,460</td>
 <td style='text-align:right;'>¥22,575</td>
@@ -1805,7 +1809,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-10&amp;checkout=2026-05-11&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-11')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-11" title="明細を開く">▶</button></td>
 <td>2026年05月11日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥25,521</td>
 <td style='text-align:right;'>¥22,402</td>
@@ -1817,7 +1821,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-11&amp;checkout=2026-05-12&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-12')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-12" title="明細を開く">▶</button></td>
 <td>2026年05月12日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥28,747</td>
 <td style='text-align:right;'>¥31,240</td>
@@ -1829,7 +1833,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-12&amp;checkout=2026-05-13&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-13')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-13" title="明細を開く">▶</button></td>
 <td>2026年05月13日<span class="wday weekday">（水）</span></td>
 <td style='text-align:right;'>¥28,810</td>
 <td style='text-align:right;'>¥30,470</td>
@@ -1841,7 +1845,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-13&amp;checkout=2026-05-14&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-14')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-14" title="明細を開く">▶</button></td>
 <td>2026年05月14日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥29,709</td>
 <td style='text-align:right;'>¥31,473</td>
@@ -1853,7 +1857,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-14&amp;checkout=2026-05-15&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-15')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-15" title="明細を開く">▶</button></td>
 <td>2026年05月15日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥27,148</td>
 <td style='text-align:right;'>¥18,605</td>
@@ -1865,7 +1869,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-15&amp;checkout=2026-05-16&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-16')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-16" title="明細を開く">▶</button></td>
 <td>2026年05月16日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥29,654</td>
 <td style='text-align:right;'>¥28,868</td>
@@ -1877,7 +1881,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-16&amp;checkout=2026-05-17&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-17')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-17" title="明細を開く">▶</button></td>
 <td>2026年05月17日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥28,636</td>
 <td style='text-align:right;'>¥32,995</td>
@@ -1889,7 +1893,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-17&amp;checkout=2026-05-18&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-18')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-18" title="明細を開く">▶</button></td>
 <td>2026年05月18日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥28,591</td>
 <td style='text-align:right;'>¥32,995</td>
@@ -1901,7 +1905,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-18&amp;checkout=2026-05-19&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-19')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-19" title="明細を開く">▶</button></td>
 <td>2026年05月19日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥27,225</td>
 <td style='text-align:right;'>¥28,444</td>
@@ -1913,7 +1917,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-19&amp;checkout=2026-05-20&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-20')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-20" title="明細を開く">▶</button></td>
 <td>2026年05月20日<span class="wday weekday">（水）</span></td>
 <td style='text-align:right;'>¥29,033</td>
 <td style='text-align:right;'>¥33,723</td>
@@ -1925,7 +1929,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-20&amp;checkout=2026-05-21&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-21')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-21" title="明細を開く">▶</button></td>
 <td>2026年05月21日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥29,740</td>
 <td style='text-align:right;'>¥32,758</td>
@@ -1937,7 +1941,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-21&amp;checkout=2026-05-22&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-22')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-22" title="明細を開く">▶</button></td>
 <td>2026年05月22日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥33,073</td>
 <td style='text-align:right;'>¥39,220</td>
@@ -1949,7 +1953,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-22&amp;checkout=2026-05-23&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-23')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-23" title="明細を開く">▶</button></td>
 <td>2026年05月23日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥35,484</td>
 <td style='text-align:right;'>¥37,240</td>
@@ -1961,7 +1965,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-23&amp;checkout=2026-05-24&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-24')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-24" title="明細を開く">▶</button></td>
 <td>2026年05月24日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥30,590</td>
 <td style='text-align:right;'>¥33,723</td>
@@ -1973,7 +1977,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-24&amp;checkout=2026-05-25&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-25')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-25" title="明細を開く">▶</button></td>
 <td>2026年05月25日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥28,841</td>
 <td style='text-align:right;'>¥32,995</td>
@@ -1985,7 +1989,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-25&amp;checkout=2026-05-26&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-26')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-26" title="明細を開く">▶</button></td>
 <td>2026年05月26日<span class="wday weekday">（火）</span></td>
 <td style='text-align:right;'>¥28,770</td>
 <td style='text-align:right;'>¥32,995</td>
@@ -1997,7 +2001,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-26&amp;checkout=2026-05-27&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-27')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-27" title="明細を開く">▶</button></td>
 <td>2026年05月27日<span class="wday weekday">（水）</span></td>
 <td style='text-align:right;'>¥28,126</td>
 <td style='text-align:right;'>¥28,444</td>
@@ -2009,7 +2013,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-27&amp;checkout=2026-05-28&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-28')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-28" title="明細を開く">▶</button></td>
 <td>2026年05月28日<span class="wday weekday">（木）</span></td>
 <td style='text-align:right;'>¥29,535</td>
 <td style='text-align:right;'>¥32,995</td>
@@ -2021,7 +2025,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-28&amp;checkout=2026-05-29&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-29')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-29" title="明細を開く">▶</button></td>
 <td>2026年05月29日<span class="wday weekday">（金）</span></td>
 <td style='text-align:right;'>¥33,508</td>
 <td style='text-align:right;'>¥39,220</td>
@@ -2033,7 +2037,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-29&amp;checkout=2026-05-30&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-30')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-30" title="明細を開く">▶</button></td>
 <td>2026年05月30日<span class="wday sat">（土）</span></td>
 <td style='text-align:right;'>¥35,543</td>
 <td style='text-align:right;'>¥39,220</td>
@@ -2045,7 +2049,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-30&amp;checkout=2026-05-31&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-05-31')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-05-31" title="明細を開く">▶</button></td>
 <td>2026年05月31日<span class="wday sun">（日）</span></td>
 <td style='text-align:right;'>¥29,969</td>
 <td style='text-align:right;'>¥33,176</td>
@@ -2057,7 +2061,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <td style="text-align:center;"><a class="link-btn" href="https://www.airbnb.jp/s/%E8%A5%BF%E4%B9%9D%E6%9D%A1%E9%A7%85/homes?checkin=2026-05-31&amp;checkout=2026-06-01&amp;adults=4&amp;children=0&amp;infants=0&amp;pets=0&amp;price_min=0" target="_blank" rel="noreferrer">詳細</a></td>
 </tr>
 <tr>
-<td><button type="button" class="jump-btn" onclick="openDayModal('2026-06-01')" title="明細を開く">▶</button></td>
+<td><button type="button" class="jump-btn" data-iso-date="2026-06-01" title="明細を開く">▶</button></td>
 <td>2026年06月01日<span class="wday weekday">（月）</span></td>
 <td style='text-align:right;'>¥29,214</td>
 <td style='text-align:right;'>¥33,128</td>
