@@ -150,13 +150,19 @@ def main() -> int:
     else:
         commit_message = datetime.now().strftime(FMT_COMMIT_MSG)
 
-    subprocess.run(
+    result = subprocess.run(
         ["git", "commit", "-m", commit_message],
         cwd=root,
-        check=True,
         capture_output=True,
         text=True,
     )
+    if result.returncode != 0:
+        print("コミットに失敗しました:")
+        if result.stderr:
+            print(result.stderr.strip())
+        if result.stdout:
+            print(result.stdout.strip())
+        return 1
     print(MSG_COMMIT_DONE.format(commit_message))
 
     print(MSG_PUSH_PREP)
