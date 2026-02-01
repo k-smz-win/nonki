@@ -116,7 +116,7 @@ window.addEventListener("DOMContentLoaded",()=>{ try{ DAY_DETAILS=JSON.parse(doc
 function openDayModal(isoDate){ const title=document.getElementById("modalTitle"); const stats=document.getElementById("modalStats"); const body=document.getElementById("modalTableBody"); const item=DAY_DETAILS[isoDate];
   if(!title||!stats||!body) return;
   title.innerHTML=item? (item.dateLabelHtml||escHtml(isoDate)) : escHtml(isoDate);
-  if(!item){ stats.innerHTML=""; body.innerHTML="<tr><td colspan="8" class="muted">この日の明細はありません</td></tr>"; document.getElementById("modalBackdrop")&&document.getElementById("modalBackdrop").classList.add("open"); document.getElementById("modalBody")&&(document.getElementById("modalBody").scrollTop=0); return; }
+  if(!item){ stats.innerHTML=""; body.innerHTML='<tr><td colspan="8" class="muted">この日の明細はありません</td></tr>'; document.getElementById("modalBackdrop")&&document.getElementById("modalBackdrop").classList.add("open"); document.getElementById("modalBody")&&(document.getElementById("modalBody").scrollTop=0); return; }
   const rows=(item.rows||[]).slice();
   const prices=rows.map(r=>Number(r.price)).filter(v=>Number.isFinite(v));
   const minV=prices.length?Math.min(...prices):null; const maxV=prices.length?Math.max(...prices):null;
@@ -145,7 +145,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <b>2026年02月01日（日）</b> ～&nbsp;<b>2026年06月01日（月）</b>
 </div>
 </div>
-<p style='margin:4px 0 10px 0; font-size:12px; color:#666;'>生成日時: 2026-02-01 18:15</p>
+<p style='margin:4px 0 10px 0; font-size:12px; color:#666;'>生成日時: 2026-02-01 18:20</p>
 <div style='max-width:50%; margin-right:auto;'>
 <div class='card' style='padding:17px;'>
 <h2 style='font-size:13px; margin-top:0; margin-bottom:12px; font-weight:600;'>概要</h2>
