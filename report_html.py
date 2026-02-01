@@ -17,6 +17,7 @@ from report_data import (
     quantile,
 )
 
+# レポート出力用
 DIR_HTML_HISTORY = Path("html")
 FMT_GENERATED_AT = "%Y-%m-%d %H:%M"
 WEEKDAYS_JA = ["月", "火", "水", "木", "金", "土", "日"]

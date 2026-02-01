@@ -31,6 +31,7 @@ from report_html import (
     svg_line_chart,
 )
 
+# 入力・出力・タイトル
 DEFAULT_AVG_PATH = "data/konohana_daily_avg.csv"
 DEFAULT_DETAILS_PATH = "data/konohana_daily_details.csv"
 DEFAULT_OUT_PATH = "docs/index.html"

@@ -25,24 +25,20 @@ import scrape_csv as csv_module
 from scrape_html_extract import extract_price_details_from_cards, price_span_anywhere_xpath
 from scrape_html_parse import build_search_url, extract_room_id_from_url
 
-# ドライバ・URL
+# ドライバ・URL・待機
 EDGE_DRIVER_NAME = "msedgedriver.exe"
 AIRBNB_TOP_URL = "https://www.airbnb.jp/"
 SLEEP_AFTER_OPEN_SEC = 3
-# 取得日数
+# 取得範囲
 DAYS_AHEAD = 120
-# 日間待機秒
 SLEEP_BETWEEN_DAYS_SEC = 1.5
-# 1日あたり最小件数
 MIN_LISTINGS_PER_DAY = 20
-# 最大ページ数
 MAX_PAGES = 5
 # スクロール
 SCROLL_TIMES = 5
 SCROLL_WAIT_SEC = 1.0
 # ログ
 LOGFILE_DEFAULT = "execute.log"
-
 LOGFILE = os.environ.get("LOGFILE", LOGFILE_DEFAULT)
 logging.basicConfig(filename=LOGFILE, level=logging.ERROR, format='[%(asctime)s] %(levelname)s: %(message)s')
 

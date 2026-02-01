@@ -16,8 +16,9 @@ from scrape_html_parse import (
     pick_reviews_count_from_text,
 )
 
+# 物件フィルタ（未満・以下は除外）
 PRICE_MIN = 0
-RATING_MIN = 4.8
+RATING_MIN = 4.79
 REVIEWS_COUNT_MIN = 20
 
 

@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import List, Optional
 
 # 定数
-BRANCH_DEFAULT = "main"
-EXCLUDE_FOLDERS = ["docs"]
+BRANCH_DEFAULT = "main"  # 取得先ブランチ
+EXCLUDE_FOLDERS = ["docs"]  # 取得除外フォルダ
 
+# メッセージ
 MSG_ERR_NOT_REPO = "エラー: リポジトリルートが Git リポジトリではありません。"
 MSG_ERR_NOT_REPO_HINT = "  git init するか、リポジトリ直下で実行してください。"
 MSG_FETCH_PREP = "  fetch 中..."

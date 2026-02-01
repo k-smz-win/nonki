@@ -6,11 +6,12 @@ from datetime import datetime
 from pathlib import Path
 
 # 定数
-FMT_COMMIT_MSG = "%Y-%m-%d %H:%M:%S"
+FMT_COMMIT_MSG = "%Y-%m-%d %H:%M:%S"  # コミットメッセージ書式
 BRANCH_DEFAULT = "main"
-ADD_FOLDERS = ["html", "data"]
-EXCLUDE_FOLDERS = ["docs"]
+ADD_FOLDERS = ["html", "data"]  # add 対象
+EXCLUDE_FOLDERS = ["docs"]  # アンステージ対象
 
+# メッセージ
 MSG_ERR_NOT_REPO = "エラー: リポジトリルート（nonki）が Git リポジトリではありません。"
 MSG_ERR_NOT_REPO_HINT = "  nonki フォルダで git init してください。"
 MSG_NO_CHANGES = "コミットする変更がありません。プッシュはスキップします。"

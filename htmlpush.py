@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 # 定数
+# パス・URL・書式
 DIR_DOCS = Path("docs")
 DIR_HTML_HISTORY = Path("html")
 FILE_INDEX_HTML = "index.html"
@@ -13,7 +14,7 @@ ENV_PAGES_URL = "GITHUB_PAGES_URL"
 DEFAULT_PAGES_URL = "https://your-username.github.io/your-repo"
 FMT_COMMIT_TIME = "%Y-%m-%d %H:%M:%S"
 BRANCH_DEFAULT = "main"
-
+# メッセージ
 MSG_SECTION_PRE = "--- 前処理 ---"
 MSG_SECTION_MAIN = "--- メイン処理 ---"
 MSG_SECTION_POST = "--- 後処理 ---"

@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
-# 出力先
+# 出力先・退避ファイル名書式
 DATA_DIR = Path("data")
 OUTPUT_CSV = DATA_DIR / "konohana_daily_avg.csv"
 OUTPUT_DETAIL_CSV = DATA_DIR / "konohana_daily_details.csv"
