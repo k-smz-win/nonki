@@ -269,13 +269,53 @@ def extract_listing_details_from_container(container) -> Dict[str, Optional[obje
         except Exception:
             pass
 
+        # listing-card-subtitle が見つからない場合、subtitle 系の要素を広く探す
+        if not details["subtitle"]:
+            try:
+                for xpath in (
+                    ".//*[contains(@data-testid, 'subtitle')]",
+                    ".//*[contains(@data-testid, 'listing-card')][contains(@data-testid, 'caption')]",
+                    ".//div[contains(@class, 'subtitle')] | .//span[contains(@class, 'subtitle')]",
+                ):
+                    elems = container.find_elements(By.XPATH, xpath)
+                    for e in elems:
+                        t = (e.text or "").strip()
+                        if t and len(t) > 2 and len(t) < 120 and ("寝室" in t or "ベッド" in t or "·" in t or "bedroom" in t.lower()):
+                            details["subtitle"] = t
+                            break
+                    if details["subtitle"]:
+                        break
+            except Exception:
+                pass
+
         if not details["subtitle"]:
             lines = container_text.split("\n")
             for line in lines:
                 line = line.strip()
-                if ("ベッド" in line or "bed" in line.lower()) and ("寝室" in line or "bedroom" in line.lower()):
+                # 寝室・ベッド・バスルーム等を含む行を補足情報とする
+                if (
+                    ("ベッド" in line or "bed" in line.lower())
+                    and ("寝室" in line or "bedroom" in line.lower())
+                ):
                     details["subtitle"] = line
                     break
+            if not details["subtitle"]:
+                # 「·」区切りの行（例: 寝室3部屋 · ベッド5台）を優先
+                for line in lines:
+                    line = line.strip()
+                    if line and "·" in line and ("寝室" in line or "ベッド" in line or "bedroom" in line.lower()):
+                        details["subtitle"] = line
+                        break
+            if not details["subtitle"]:
+                for line in lines:
+                    line = line.strip()
+                    # 寝室 or ベッド or バスルームを含む短めの行（長いタイトルと区別するため50文字以下）
+                    if line and len(line) <= 50 and (
+                        "寝室" in line or "ベッド" in line or "バスルーム" in line
+                        or "bedroom" in line.lower() or "bath" in line.lower()
+                    ):
+                        details["subtitle"] = line
+                        break
     except Exception:
         pass
     return details

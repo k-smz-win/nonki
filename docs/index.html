@@ -120,7 +120,7 @@ function openDayModal(isoDate){ const title=document.getElementById("modalTitle"
   const rows=(item.rows||[]).slice();
   const prices=rows.map(r=>Number(r.price)).filter(v=>Number.isFinite(v));
   const minV=prices.length?Math.min(...prices):null; const maxV=prices.length?Math.max(...prices):null;
-  stats.innerHTML=["<span class="pill">件数 "+rows.length+"</span>","<span class="pill">平均 "+escHtml(fmtYen(mean(prices)))+"</span>","<span class="pill">中央値 "+escHtml(fmtYen(median(prices)))+"</span>","<span class="pill">下位25%点 "+escHtml(fmtYen(quantile(prices,0.25)))+"</span>","<span class="pill">上位25%点 "+escHtml(fmtYen(quantile(prices,0.75)))+"</span>","<span class="pill">最小 "+escHtml(fmtYen(minV))+"</span>","<span class="pill">最大 "+escHtml(fmtYen(maxV))+"</span>"].join(" ");
+  stats.innerHTML=['<span class="pill">件数 '+rows.length+'</span>','<span class="pill">平均 '+escHtml(fmtYen(mean(prices)))+'</span>','<span class="pill">中央値 '+escHtml(fmtYen(median(prices)))+'</span>','<span class="pill">下位25%点 '+escHtml(fmtYen(quantile(prices,0.25)))+'</span>','<span class="pill">上位25%点 '+escHtml(fmtYen(quantile(prices,0.75)))+'</span>','<span class="pill">最小 '+escHtml(fmtYen(minV))+'</span>','<span class="pill">最大 '+escHtml(fmtYen(maxV))+'</span>'].join(" ");
   rows.sort((a,b)=>Number(a.price)-Number(b.price));
   const html=rows.map((r,idx)=>{ const url=r.url||""; const label=r.label||""; const title=r.title||""; const reviewsCount=r.reviews_count!=null?String(r.reviews_count):""; const rating=r.rating!=null?parseFloat(r.rating).toFixed(2):""; const subtitle=r.subtitle||""; const detailLink=url?`<a class="link-btn" href="${escHtml(url)}" target="_blank" rel="noreferrer">詳細</a>`:"-"; const labelShort=label.length>180?label.slice(0,180)+"…":label; const titleShort=title.length>90?title.slice(0,90)+"…":title; const subtitleShort=subtitle.length>150?subtitle.slice(0,150)+"…":subtitle; return `<tr><td>${idx+1}</td><td style='text-align:right;'>${escHtml(fmtYen(r.price))}</td><td>${escHtml(titleShort||"-")}</td><td style='text-align:right;'>${escHtml(rating||"-")}</td><td style='text-align:right;'>${escHtml(reviewsCount||"-")}</td><td>${escHtml(subtitleShort||"-")}</td><td style="text-align:center;">${detailLink}</td><td>${escHtml(labelShort)}</td></tr>`; }).join("");
   body.innerHTML=html||`<tr><td colspan="8" class="muted">明細なし</td></tr>`;
@@ -145,7 +145,7 @@ function attachTooltipListeners(circles){ circles.forEach(circle=>{ if(circle.ha
 <b>2026年02月01日（日）</b> ～&nbsp;<b>2026年06月01日（月）</b>
 </div>
 </div>
-<p style='margin:4px 0 10px 0; font-size:12px; color:#666;'>生成日時: 2026-02-01 18:20</p>
+<p style='margin:4px 0 10px 0; font-size:12px; color:#666;'>生成日時: 2026-02-01 18:32</p>
 <div style='max-width:50%; margin-right:auto;'>
 <div class='card' style='padding:17px;'>
 <h2 style='font-size:13px; margin-top:0; margin-bottom:12px; font-weight:600;'>概要</h2>

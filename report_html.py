@@ -604,7 +604,7 @@ def html_table_avg(
         has_details = r.checkin in detail_stats_by_day
         out.append("<tr>")
         if has_details:
-            out.append(f'<td><button type="button" class="jump-btn" onclick="openDayModal(\'{iso}\')" title="明細を開く">▶</button></td>')
+            out.append(f'<td><button type="button" class="jump-btn" data-iso-date="{escape(iso)}" title="明細を開く">▶</button></td>')
         else:
             out.append('<td><button type="button" class="jump-btn" disabled title="明細なし">▶</button></td>')
         out.append(f"<td>{fmt_date_jp_with_weekday_html(r.checkin, holidays)}</td>")
