@@ -109,7 +109,7 @@ def main() -> int:
         html_parts.append("<div style='max-width:50%; margin-right:auto;'>")
         html_parts.append("<div class='card' style='padding:17px;'>")
         html_parts.append("<h2 style='font-size:13px; margin-top:0; margin-bottom:12px; font-weight:600;'>概要</h2>")
-        html_parts.append("<p style='margin:4px 0 0 0; font-size:11px; color:#666; line-height:1.6;'>レビュー4.8以下は除外、レビュー数20未満は除外、上限は直近1ヶ月45,000円、直近2ヶ月45,000円、通常期50,000円、3連休45,000円、繁忙期（お盆・正月・年末・GW）50,000円としています。</p>")
+        html_parts.append("<p style='margin:4px 0 0 0; font-size:11px; color:#666; line-height:1.6;'>レビュー4.8より下は除外、レビュー数20未満は除外、上限は直近1ヶ月45,000円、直近2ヶ月45,000円、通常期50,000円、3連休45,000円、繁忙期（お盆・正月・年末・GW）50,000円としています。</p>")
         html_parts.append("<div style='margin-top:12px;'>")
         html_parts.append("<h3 style='margin:0 0 8px 0; font-size:13px; font-weight:600;'>1ヶ月単位の推移</h3>")
         html_parts.append(html_monthly_summary(avg_rows, detail_stats_by_day))
