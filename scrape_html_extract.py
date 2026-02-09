@@ -138,11 +138,32 @@ def extract_listing_details_from_container(container) -> Dict[str, Optional[obje
                 details["guests"] = pick_guests_from_text(container_text) or pick_guests_from_text(container_html)
 
         # サブタイトル行から寝室数を取得（優先）
+        # 補足情報: listing-card-title の長い説明文（例: 【囲炉裏&プライベートサウナ】IRORI BY LUGSTAY…）を優先
+        try:
+            for xpath in (
+                ".//div[@data-testid='listing-card-title']",
+                ".//span[@data-testid='listing-card-title']",
+                ".//a[@data-testid='listing-card-title']",
+            ):
+                try:
+                    title_elem = container.find_element(By.XPATH, xpath)
+                    long_desc = (title_elem.text or title_elem.get_attribute("innerText") or "").strip()
+                    if long_desc and len(long_desc) > 20:
+                        details["subtitle"] = long_desc
+                        break
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
         try:
             subtitle_elem = container.find_element(By.XPATH, ".//div[@data-testid='listing-card-subtitle'] | .//span[@data-testid='listing-card-subtitle']")
             subtitle_text = subtitle_elem.text or ""
             if subtitle_text:
                 details["bedrooms"] = pick_bedrooms_from_text(subtitle_text)
+                # 補足が未設定のときのみ listing-card-subtitle（寝室・ベッド等）を補足に使う
+                if not details["subtitle"]:
+                    details["subtitle"] = subtitle_text.strip()
         except Exception:
             pass
 
@@ -172,6 +193,8 @@ def extract_listing_details_from_container(container) -> Dict[str, Optional[obje
             subtitle_text = subtitle_elem.text or ""
             if subtitle_text:
                 details["beds"] = pick_beds_from_text(subtitle_text)
+                if not details["subtitle"]:
+                    details["subtitle"] = subtitle_text.strip()
         except Exception:
             pass
 
@@ -265,7 +288,7 @@ def extract_listing_details_from_container(container) -> Dict[str, Optional[obje
         try:
             subtitle_elem = container.find_element(By.XPATH, ".//div[@data-testid='listing-card-subtitle'] | .//span[@data-testid='listing-card-subtitle']")
             subtitle_text = subtitle_elem.text or ""
-            if subtitle_text:
+            if subtitle_text and not details["subtitle"]:
                 details["subtitle"] = subtitle_text.strip()
         except Exception:
             pass
@@ -362,7 +385,8 @@ def extract_title_from_element(elem) -> str:
             title_text = title_elem.text or title_elem.get_attribute("innerText") or title_elem.get_attribute("textContent") or ""
             if title_text and len(title_text.strip()) > 0:
                 title_text = title_text.strip()
-                if len(title_text) >= 3:
+                # 短いタイトル（例: 大阪市の一軒家）のみタイトルとする。長い説明文は補足として別途取得する
+                if len(title_text) >= 3 and len(title_text) <= 35:
                     return title_text
     except Exception:
         pass
@@ -410,7 +434,7 @@ def extract_title_from_element(elem) -> str:
             title_text = title_elem.text or title_elem.get_attribute("innerText") or title_elem.get_attribute("textContent") or ""
             if title_text:
                 title_text = title_text.strip()
-                if len(title_text) >= 3 and "¥" not in title_text and "1泊" not in title_text and "（1泊）" not in title_text:
+                if len(title_text) >= 3 and len(title_text) <= 35 and "¥" not in title_text and "1泊" not in title_text and "（1泊）" not in title_text:
                     return title_text
     except Exception:
         pass
